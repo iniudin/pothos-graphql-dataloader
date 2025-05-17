@@ -28,7 +28,7 @@ builder.objectType("User", {
         return posts;
       },
       args: {
-        ids: t.arg.intList(),
+        ids: t.arg.idList(),
       },
       group: (post) => post.userId,
       resolve: (user) => user.id,
@@ -49,7 +49,7 @@ builder.objectType("Post", {
         return ids.map((id) => usersMap.get(id));
       },
       args: {
-        ids: t.arg.intList(),
+        ids: t.arg.idList(),
       },
       resolve: (post) => post.userId,
     }),
