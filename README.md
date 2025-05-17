@@ -1,6 +1,6 @@
 # Graphql Dataloader Example
 
-This is a simple example of using dataloader with @pothos/plugin-dataloader.
+This is a simple example of using dataloader with `@pothos/plugin-dataloader`.
 
 To install dependencies:
 
@@ -58,4 +58,3 @@ mutation {
   }
 }
 ```
-  
