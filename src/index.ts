@@ -99,8 +99,8 @@ builder.mutationType({
         name: t.arg.string({ required: true }),
       },
       resolve: async (_, args) => {
-        const user = await db.insert(tables.users).values({ name: args.name }).returning();
-        return user[0];
+        const [user] = await db.insert(tables.users).values({ name: args.name }).returning();
+        return user;
       },
     }),
     createPost: t.field({
@@ -111,8 +111,8 @@ builder.mutationType({
         userId: t.arg.int({ required: true }),
       },
       resolve: async (_, args) => {
-        const post = await db.insert(tables.posts).values({ title: args.title, content: args.content, userId: args.userId }).returning();
-        return post[0];
+        const [post] = await db.insert(tables.posts).values({ title: args.title, content: args.content, userId: args.userId }).returning();
+        return post;
       },
     }),
   }),
