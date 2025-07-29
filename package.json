@@ -8,7 +8,9 @@
     "dev": "bun run --watch ./src/index.ts"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.1"
+    "drizzle-kit": "^0.31.1",
+    "@antfu/eslint-config": "^5.0.0",
+    "eslint": "^9.31.0"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -17,9 +19,10 @@
     "@libsql/client": "^0.15.6",
     "@pothos/core": "^4.6.2",
     "@pothos/plugin-dataloader": "^4.4.1",
+    "@pothos/plugin-drizzle": "^0.11.1",
     "dataloader": "^2.2.3",
     "dotenv": "^16.5.0",
-    "drizzle-orm": "^0.43.1",
+    "drizzle-orm": "^1.0.0-beta.1-c0277c0",
     "graphql-yoga": "^5.13.4"
   }
 }
