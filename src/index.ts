@@ -1,117 +1,148 @@
-import type { IPost, IUser } from './db'
 import { createServer } from 'node:http'
 
 import SchemaBuilder from '@pothos/core'
-import DataloaderPlugin from '@pothos/plugin-dataloader'
-import { eq, inArray } from 'drizzle-orm'
+import DrizzlePlugin from '@pothos/plugin-drizzle'
 
+import { eq } from 'drizzle-orm'
+import { getTableConfig } from 'drizzle-orm/sqlite-core'
 import { createYoga } from 'graphql-yoga'
-import { db, schema } from './db'
+import { db, relations } from './db'
+import { posts, users } from './schema'
 
-const builder = new SchemaBuilder<{
-  Objects: {
-    User: IUser
-    Post: IPost
-  }
-}>({
-  plugins: [DataloaderPlugin],
+type DrizzleRelations = typeof relations
+
+export interface PothosTypes {
+  DrizzleRelations: DrizzleRelations
+}
+
+const builder = new SchemaBuilder<PothosTypes>({
+  plugins: [DrizzlePlugin],
+  drizzle: {
+    client: db,
+    relations,
+    getTableConfig,
+  },
 })
 
-builder.objectType('User', {
+const UserRef = builder.drizzleObject('users', {
+  name: 'User',
+  description: 'User object',
   fields: t => ({
     id: t.exposeID('id'),
     name: t.exposeString('name'),
-    posts: t.loadableGroup({
-      type: 'Post',
-      load: async (ids: number[]) => {
-        const posts = await db.select().from(schema.posts).where(inArray(schema.posts.userId, ids))
-        return posts
-      },
-      args: {
-        ids: t.arg.idList(),
-      },
-      group: post => post.userId,
-      resolve: user => user.id,
-    }),
+    posts: t.relation('posts'),
   }),
 })
 
-builder.objectType('Post', {
+const PostRef = builder.drizzleObject('posts', {
+  name: 'Post',
+  description: 'Post object',
   fields: t => ({
     id: t.exposeID('id'),
     title: t.exposeString('title'),
     content: t.exposeString('content'),
-    author: t.loadable({
-      type: 'User',
-      load: async (ids: number[]) => {
-        const users = await db.select().from(schema.users).where(inArray(schema.users.id, ids))
-        const usersMap = new Map(users.map(user => [user.id, user]))
-        return ids.map(id => usersMap.get(id))
-      },
-      args: {
-        ids: t.arg.idList(),
-      },
-      resolve: post => post.userId,
-    }),
+    author: t.relation('author'),
   }),
 })
 
 builder.queryType({
   fields: t => ({
-    users: t.field({
-      type: ['User'],
-      resolve: async () => await db.select().from(schema.users),
+    users: t.drizzleField({
+      type: [UserRef],
+      resolve: () => db.query.users.findMany(),
     }),
-    posts: t.field({
-      type: ['Post'],
-      resolve: async () => await db.select().from(schema.posts),
+    posts: t.drizzleField({
+      type: [PostRef],
+      resolve: () => db.query.posts.findMany(),
     }),
-
-    user: t.field({
-      type: 'User',
+    user: t.drizzleField({
+      type: UserRef,
       args: {
         id: t.arg.int({ required: true }),
       },
-      resolve: async (_, args) => {
-        const [user] = await db.select().from(schema.users).where(eq(schema.users.id, args.id))
-        return user
-      },
+      resolve: (query, _, args) =>
+        db.query.users.findFirst(
+          query({
+            where: {
+              id: args.id,
+            },
+          }),
+        ),
     }),
-
-    post: t.field({
-      type: 'Post',
+    post: t.drizzleField({
+      type: PostRef,
       args: {
         id: t.arg.int({ required: true }),
       },
-      resolve: async (_, args) => {
-        const [post] = await db.select().from(schema.posts).where(eq(schema.posts.id, args.id))
-        return post
-      },
+      resolve: (query, _, args) =>
+        db.query.posts.findFirst(
+          query({
+            where: {
+              id: args.id,
+            },
+          }),
+        ),
     }),
   }),
 })
 
 builder.mutationType({
   fields: t => ({
-    createUser: t.field({
-      type: 'User',
+    createUser: t.drizzleField({
+      type: UserRef,
       args: {
         name: t.arg.string({ required: true }),
       },
-      resolve: async (_, args) => {
-        const [user] = await db.insert(schema.users).values({ name: args.name }).returning()
+      resolve: async (query, _, args) => {
+        const [user] = await db.insert(users).values({
+          name: args.name,
+        }).returning()
         return user
       },
     }),
-    createPost: t.field({
-      type: 'Post',
+    createPost: t.drizzleField({
+      type: PostRef,
       args: {
         title: t.arg.string({ required: true }),
         content: t.arg.string({ required: true }),
         userId: t.arg.int({ required: true }),
       },
-      resolve: async (_, args) => {
-        const [post] = await db.insert(schema.posts).values({ title: args.title, content: args.content, userId: args.userId }).returning()
+      resolve: async (query, _, args) => {
+        const [post] = await db.insert(posts).values({
+          title: args.title,
+          content: args.content,
+          userId: args.userId,
+        }).returning()
+        return post
+      },
+    }),
+    updateUser: t.drizzleField({
+      type: UserRef,
+      args: {
+        id: t.arg.int({ required: true }),
+        name: t.arg.string(),
+      },
+      resolve: async (query, _, args) => {
+        const [user] = await db.update(users).set({
+          name: args.name ?? undefined,
+        }).where(eq(users.id, args.id)).returning()
+        return user
+      },
+    }),
+    updatePost: t.drizzleField({
+      type: PostRef,
+      args: {
+        id: t.arg.int({ required: true }),
+        title: t.arg.string(),
+        content: t.arg.string(),
+        userId: t.arg.int(),
+      },
+      resolve: async (query, _, args) => {
+        const [post] = await db.update(posts).set({
+          title: args.title ?? undefined,
+          content: args.content ?? undefined,
+          userId: args.userId ?? undefined,
+        }).where(eq(posts.id, args.id)).returning()
         return post
       },
     }),
